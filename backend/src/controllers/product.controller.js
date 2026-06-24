@@ -2,7 +2,6 @@ const mongoose = require("mongoose");
 const Product = require("../models/product.model");
 
 // GET /api/products
-// Supports cursor-based pagination + optional category filter
 const getProducts = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit) || 20, 100);
@@ -24,8 +23,7 @@ const getProducts = async (req, res) => {
 
       const { createdAt, _id } = cursorData;
 
-      // Cursor condition: fetch products older than the last seen item
-      // Using (createdAt, _id) pair handles ties in timestamp correctly
+     
       filter.$or = [
         { createdAt: { $lt: new Date(createdAt) } },
         {
@@ -71,12 +69,6 @@ const getCategories = async (req, res) => {
 };
 
 // POST /api/simulate-changes
-// This endpoint exists purely to prove the pagination is stable under data changes.
-// It inserts 50 brand-new products (simulating concurrent additions) and updates
-// 50 existing products (simulating price/name edits).
-// After calling this, the user browsing page 2, 3, etc. must still see no
-// duplicates and no skipped items — because the cursor is anchored to createdAt,
-// not a row offset.
 const simulateChanges = async (req, res) => {
   try {
     const CATEGORIES = [
@@ -84,10 +76,7 @@ const simulateChanges = async (req, res) => {
       "Sports", "Toys", "Food", "Beauty", "Automotive", "Jewelry",
     ];
 
-    // Insert 50 new products with createdAt = NOW
-    // These will appear at the very TOP of the list (newest first)
-    // but will NOT appear in any ongoing paginated session because the
-    // cursor already points past them
+  
     const newProducts = Array.from({ length: 50 }, (_, i) => ({
       name: `NEW Injected Product #${i + 1}`,
       category: CATEGORIES[i % CATEGORIES.length],
@@ -98,8 +87,7 @@ const simulateChanges = async (req, res) => {
 
     await Product.insertMany(newProducts, { ordered: false });
 
-    // Update 50 random existing products — change their price and updatedAt
-    // createdAt stays the same, so their position in pagination doesn't move
+   
     const randomProducts = await Product.aggregate([{ $sample: { size: 50 } }]);
     const updateOps = randomProducts.map((p) => ({
       updateOne: {
